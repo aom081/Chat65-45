@@ -2,13 +2,13 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { connectDB } from "./config/db.js"; // Ensure the correct path and extension
+import { connectDB } from "./lib/db.js";
+import { app, server } from "./lib/socket.js";
 dotenv.config();
-import router from "./routers/auth.router.js";
+import authRouter from "./routes/auth.route.js";
+import messageRouter from "./routes/message.route.js";
 
 const PORT = process.env.PORT;
-
-const app = express();
 
 app.use(
   express.json({
@@ -24,13 +24,13 @@ app.use(
 );
 
 app.get("/", (req, res) => {
-  res.send("Hello World");
+  res.send("<h1>Restful Service for MERN Chat Project</h1>");
 });
 
-app.use("/api/auth", router);
+app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/message", messageRouter);
 
-connectDB();
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log("Server is running on http://localhost:" + PORT);
+  connectDB();
 });

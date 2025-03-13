@@ -1,22 +1,22 @@
-import Jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-
 dotenv.config();
-
-const secret = process.env.SECRET;
+const secret = process.env.JWT_SECRET;
 const node_mode = process.env.NODE_ENV;
 
 export const generateToken = (userId, res) => {
-  const Token = Jwt.sign({ userId }, secret, { expiresIn: "1d" });
-
-  res.cookie("jwt", Token, {
-    httpOnly: true,
-    secure: node_mode !== "development",
-    maxAge: 1000 * 60 * 60 * 24,
-    sameSite: "strict",
+  const token = jwt.sign({ userId }, secret, {
+    expiresIn: "1d",
   });
 
-  console.log("Token generated and cookie set");
+  res.cookie("jwt", token, {
+    maxAge: 24 * 60 * 60 * 1000, //MS
+    httpOnly: true, //XSS Attacks
+    sameSite: "strict", //CSRF attacks,
+    secure: node_mode !== "development",
+  });
 
-  return Token;
+  console.log("Token generated ans cookie set");
+
+  return token;
 };

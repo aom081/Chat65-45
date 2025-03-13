@@ -1,97 +1,121 @@
 import { generateToken } from "../lib/utils.js";
-import User from "../model/user.model.js";
+import User from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import cloudinary from "../lib/cloudinary.js";
 
-export const signUp = async (req, res) => {
-  const { username, email, password } = req.body;
-  if (!username || !email || !password) {
-    return res.status(400).json({ error: "All fields are required" });
+export const signup = async (req, res) => {
+  const { fullName, email, password } = req.body;
+  if (!fullName || !email || !password) {
+    return res.status(400).json({ message: "All fields are required" });
   }
+
   try {
     const user = await User.findOne({ email });
+
     if (user) {
-      return res.status(400).json({ error: "Email already exists" });
+      return res.status(400).json({ message: "Email already exists" });
     }
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const userCreated = await User.create({
-      username,
+
+    const newUser = new User({
+      fullName,
       email,
       password: hashedPassword,
     });
+
     if (newUser) {
       generateToken(newUser._id, res);
+
       await newUser.save();
+
       res.status(201).json({
         _id: newUser._id,
-        username: newUser.username,
+        fullName: newUser.fullName,
         email: newUser.email,
         profilePic: newUser.profilePic,
       });
     } else {
-      return res.status(400).json({ error: "invalid user data" });
+      res.status(400).json({ message: "Invalid user data" });
     }
   } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
+    console.log(error);
+
+    res
+      .status(500)
+      .json({ message: "Internal Server Error While registering a new user" });
   }
 };
 
-export const signIn = async (req, res) => {
+export const login = async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ error: "All fields are required" });
+    return res.status(400).json({ message: "Email or Password is missing" });
   }
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ error: "Invalid email" });
+      return res.status(404).json({ message: "Email not Found" });
     }
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(400).json({ error: "Invalid password" });
+
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    if (!isPasswordCorrect) {
+      return res.status(400).json({ message: "Password is mismatched" });
     }
     generateToken(user._id, res);
-    res.status(200).json({
+    res.status(201).json({
       _id: user._id,
-      username: user.username,
+      fullName: user.fullName,
       email: user.email,
       profilePic: user.profilePic,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
+    console.log(error);
+
+    res.status(500).json({ message: "Internal Server Error While logging in" });
   }
 };
 
-export const signOut = async (req, res) => {
+export const logout = async (req, res) => {
   try {
-    res.clearCookie("token");
-    res.status(200).json({ message: "Logged out" });
+    res.cookie("jwt", "", { maxAge: 0 });
+    res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
+    res
+      .status(500)
+      .json({ message: "Internal Server Error While logging out " });
   }
 };
 
-export const uploadProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     const { profilePic } = req.body;
     const userId = req.user._id;
+    // const { id: userId } = req.params;
+
     if (!profilePic) {
-      return res.status(400).json({ error: "All fields are required" });
+      return res.status(400).json({ message: "Profile picture is required" });
     }
     const uploadResponse = await cloudinary.uploader.upload(profilePic);
+    if (!uploadResponse) {
+      res
+        .status(500)
+        .json({ message: "Error while uploading profile picture" });
+    }
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { profilePic: uploadResponse.secure_url },
       { new: true }
     );
     if (updatedUser) {
-      return res.status(200).json(updatedUser);
+      res.status(200).json(updatedUser);
     } else {
-      return res.status(400).json({ error: "Invalid user data" });
+      res.status(500).json({ message: "Error while updating profile picture" });
     }
   } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
+    console.log(error);
+
+    res.status(500).json({ message: "Internal Server Error While updating " });
   }
 };
 
@@ -99,6 +123,8 @@ export const checkAuth = async (req, res) => {
   try {
     res.status(200).json(req.user);
   } catch (error) {
-    return res.status(500).json({ error: "Internal server error" });
+    res
+      .status(500)
+      .json({ message: "Internal Server Error While checking Auth " });
   }
 };
