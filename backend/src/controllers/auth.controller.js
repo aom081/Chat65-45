@@ -1,7 +1,7 @@
-import { generateToken } from "../utils/jwt.utils";
-import User from "../model/user.model";
-import bcrypt from "bcryptjs";
-import cloudinary from "../lib/cloudinary";
+import { generateToken } from "../lib/utils.js";
+import User from "../model/user.model.js";
+import bcrypt from "bcrypt";
+import cloudinary from "../lib/cloudinary.js";
 
 export const signUp = async (req, res) => {
   const { username, email, password } = req.body;
@@ -90,6 +90,14 @@ export const uploadProfile = async (req, res) => {
     } else {
       return res.status(400).json({ error: "Invalid user data" });
     }
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const checkAuth = async (req, res) => {
+  try {
+    res.status(200).json(req.user);
   } catch (error) {
     return res.status(500).json({ error: "Internal server error" });
   }
