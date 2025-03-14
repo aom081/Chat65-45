@@ -16,3 +16,57 @@ export const getUsersForSidebar = async (req, res) => {
       .json({ message: "Internal Server Error while getting users info" });
   }
 };
+
+export const sendMessage = async (req, res) => {
+  try {
+    const { id: receiverId } = req.params;
+    if (!id) {
+      return res.status(400).json({ message: "Receiver Id is required" });
+    }
+    const senderId = req.user._id;
+
+    const { text, image } = req.body;
+    let imageURL;
+    if (image) {
+      const uploadedImage = await cloudinary.uploader.upload(image);
+      imageURL = uploadedImage.secure_url;
+    }
+
+    const newMessage = new Message({
+      senderId,
+      receiverId,
+      text,
+      image: imageURL,
+    });
+    await newMessage.save();
+    //real time chat
+    const receiverSocketId = getReceiverSocketId(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+    res.status(200).json(newMessage);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal Server Error while sending message" });
+  }
+};
+
+export const getMessages = async (req, res) => {
+  try {
+    const { id: userToChatId } = req.params;
+    const myId = req.user._id;
+
+    const messages = await Message.find({
+      $or: [
+        { senderId: myId, receiverId: userToChatId },
+        { senderId: userToChatId, receiverId: myId },
+      ],
+    });
+    res.status(200).json(messages);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal Server Error while getting messages" });
+  }
+};
