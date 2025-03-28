@@ -7,6 +7,7 @@ import { app, server } from "./lib/socket.js";
 dotenv.config();
 import authRouter from "./routes/auth.route.js";
 import messageRouter from "./routes/message.route.js";
+import friendRouter from "./routes/friend.route.js";
 
 const PORT = process.env.PORT;
 
@@ -29,6 +30,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/message", messageRouter);
+app.use("/api/v1/friend", friendRouter);
 
 server.listen(PORT, () => {
   console.log("Server is running on http://localhost:" + PORT);

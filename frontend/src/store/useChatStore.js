@@ -1,19 +1,17 @@
 import { create } from "zustand";
 import api from "../services/api.js";
 import { useAuthStore } from "./useAuthStore.js";
+import toast from "react-hot-toast";
 
 export const useChatStore = create((set, get) => ({
   users: [],
   messages: [],
   selectedUser: null,
   isUserLoading: false,
-  isMessagesLoading: false,
-
-  sendMessage: async (receiverId, text, image) => {
-    const { authUser } = useAuthStore.getState();
-    const response = await api.post(`/messages/${receiverId}`, { text, image });
-    return response.data;
-  },
+  isMessageLoading: false,
+  isFriend: false,
+  friendRequestSent: false,
+  friendRequestReceived: false,
   getUsers: async () => {
     set({ isUserLoading: true });
     try {
@@ -22,55 +20,108 @@ export const useChatStore = create((set, get) => ({
     } catch (error) {
       toast.error(
         error.response.data.message ||
-          "Internal Server Error while getting users info"
+          "Something went wrong while fetching user"
       );
     } finally {
       set({ isUserLoading: false });
     }
   },
-  getMessages: async (userId) => {
-    set({ isMessagesLoading: true });
+  getMessage: async (userId) => {
+    set({ isMessageLoading: true });
     try {
-      const res = await api.get(`/messages/${userId}`);
+      const res = await api.get(`/message/${userId}`);
       set({ messages: res.data });
     } catch (error) {
       toast.error(
         error.response.data.message ||
-          "Internal Server Error while getting messages"
+          "Something went wrong while getting message"
       );
     } finally {
-      set({ isMessagesLoading: false });
+      set({ isMessageLoading: false });
     }
   },
-  setMessages: async (messages) => {
-    const { selectedUser, message } = get();
+  sendMessage: async (messageData) => {
+    const { selectedUser, messages } = get();
+    // console.log(selectedUser, messages);
+
     try {
-      const res = await api.post(`/messages/${selectedUser._id}`, {
-        messageData,
-      });
+      // console.log(messageData);
+
+      const res = await api.post(
+        `/message/send/${selectedUser._id}`,
+        messageData
+      );
+
       set({ messages: [...messages, res.data] });
     } catch (error) {
       toast.error(
-        error.response.data.message || "Internal Server Error while sending"
+        error.response.data.message ||
+          "Something went wrong while sending message"
       );
     }
   },
-  SubscriptToMessages: () => {
+  subscribeToMessages: () => {
     const { selectedUser } = get();
     if (!selectedUser) return;
+    // console.log("selectedUser", selectedUser);
+
     const socket = useAuthStore.getState().socket;
+    // console.log(socket);
+
     socket.on("newMessage", (newMessage) => {
-      const isMessageSenderSelectedUser =
+      // console.log("senderId", newMessage.senderId);
+      // console.log("selectedUser", selectedUser._id);
+
+      const isMessageSendFromSelectedUser =
         newMessage.senderId === selectedUser._id;
-      if (!isMessageSenderSelectedUser) return;
-      set({ messages: [...get().messages, newMessage] });
+      if (!isMessageSendFromSelectedUser) return;
+      // console.log("Message", newMessage);
+
+      set({
+        messages: [...get().messages, newMessage],
+      });
     });
   },
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     socket.off("newMessage");
   },
-  setSelectedUser: (user) => {
-    set({ selectedUser });
+  addFriend: async (friendId) => {
+    try {
+      const res = await api.post("/friend/add", { friendId });
+      toast.success(res.data.message);
+      console.log("friend", friendId);
+
+      const socket = useAuthStore.getState().socket;
+      if (socket) {
+        socket.emit("friendRequestSent", friendId);
+        console.log("sent friend request");
+      }
+      set({ friendRequestSent: true });
+    } catch (error) {
+      toast.error(
+        error.response.data.message ||
+          "Something went wrong while adding friend"
+      );
+    }
   },
+  acceptFriendRequest: async (friendId) => {
+    try {
+      const res = await api.post("friend/accept", { friendId });
+      toast.success(res.data.message);
+
+      useAuthStore.getState().socket.emit("friendRequestAccepted", friendId);
+      set({ isFriend: true, friendRequestReceived: false });
+    } catch (error) {
+      toast.error(
+        error.response.data.message ||
+          "Something went wrong while accepting a friend request"
+      );
+    }
+  },
+  setSelectedUser: (selectedUser) => set({ selectedUser }),
+  setIsFriend: (isFriend) => set({ isFriend }),
+  setFriendRequestSent: (sent) => set({ friendRequestSent: sent }),
+  setFriendRequestReceived: (received) =>
+    set({ friendRequestReceived: received }),
 }));

@@ -28,6 +28,26 @@ io.on("connection", (socket) => {
   }
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
+  socket.on("friendRequestSent", (friendId) => {
+    const receiverSocketId = getReceiverSocketId(friendId);
+    console.log("receiverSocketId", receiverSocketId);
+
+    if (receiverSocketId) {
+      console.log("Before");
+
+      io.to(receiverSocketId).emit("friendRequestReceived", userId);
+      console.log("After");
+    }
+  });
+
+  socket.on("friendRequestAccepted", (friendId) => {
+    const receiverSocketId = getReceiverSocketId(friendId);
+    console.log("receiverSocketId", receiverSocketId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("friendRequestAccepted", userId);
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("A user disconnected", socket.id);
     delete userSocketMap[userId];
